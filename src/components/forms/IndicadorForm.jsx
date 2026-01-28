@@ -1,13 +1,219 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Info, Clock, Brain, TrendingUp, Percent, Shield, Target, Zap, Smile,
-  DollarSign, Calculator, ArrowLeft, ArrowRight, Save, Plus, Trash2, Tag
+  DollarSign, Calculator, ArrowLeft, ArrowRight, Save, Plus, Trash2, Tag,
+  User, Users, Briefcase, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import { Card, CardContent, Button, Input, Select, Textarea, Tabs, TabPanel } from '../ui';
 import useStore, { TIPOS_INDICADOR, PERIODOS_FREQUENCIA, CATEGORIAS_CUSTO } from '../../store/useStore';
 import { toast } from '../ui/Toast';
 
 const icones = { Clock, Brain, TrendingUp, Percent, Shield, Target, Zap, Smile };
+
+// Componente para gerenciar pessoas atuando com IA
+const PessoasComIA = ({ pessoas = [], onChange, habilitado, onToggle }) => {
+  const adicionarPessoa = () => {
+    const novaPessoa = {
+      id: Date.now(),
+      nome: '',
+      cargo: '',
+      valorHora: 0,
+      tempoExecucao: 0, // minutos
+      frequencia: { quantidade: 1, periodo: 'mes' }
+    };
+    onChange([...pessoas, novaPessoa]);
+  };
+
+  const atualizarPessoa = (id, campo, valor) => {
+    onChange(pessoas.map(p => p.id === id ? { ...p, [campo]: valor } : p));
+  };
+
+  const atualizarFrequenciaPessoa = (id, campo, valor) => {
+    onChange(pessoas.map(p => p.id === id ? { 
+      ...p, 
+      frequencia: { ...p.frequencia, [campo]: valor } 
+    } : p));
+  };
+
+  const removerPessoa = (id) => {
+    onChange(pessoas.filter(p => p.id !== id));
+  };
+
+  // Calcular custo mensal por pessoa
+  const calcularCustoMensalPessoa = (pessoa) => {
+    const tempoHoras = (pessoa.tempoExecucao || 0) / 60;
+    const valorHora = pessoa.valorHora || 0;
+    const periodo = PERIODOS_FREQUENCIA.find(p => p.valor === pessoa.frequencia?.periodo);
+    const frequenciaMensal = (pessoa.frequencia?.quantidade || 1) * (periodo?.multiplicador || 1);
+    return tempoHoras * valorHora * frequenciaMensal;
+  };
+
+  // Calcular total mensal de todas as pessoas
+  const calcularTotalMensal = () => {
+    return pessoas.reduce((acc, p) => acc + calcularCustoMensalPessoa(p), 0);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Toggle para habilitar/desabilitar */}
+      <div className="flex items-center justify-between p-4 bg-slate-700/30 rounded-xl border border-slate-600/50">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
+            <Users className="w-5 h-5 text-purple-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-white">Pessoas Atuando com IA</h3>
+            <p className="text-xs text-slate-400">Inclua pessoas que ainda atuam no processo com IA</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onToggle}
+          className={`p-2 rounded-lg transition-colors ${
+            habilitado 
+              ? 'bg-green-500/20 text-green-400' 
+              : 'bg-slate-600/50 text-slate-400'
+          }`}
+        >
+          {habilitado ? <ToggleRight className="w-6 h-6" /> : <ToggleLeft className="w-6 h-6" />}
+        </button>
+      </div>
+
+      {habilitado && (
+        <>
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Adicione as pessoas que continuam atuando no processo mesmo com IA
+            </p>
+            <Button variant="outline" size="sm" onClick={adicionarPessoa} icon={Plus}>
+              Adicionar Pessoa
+            </Button>
+          </div>
+
+          {pessoas.length === 0 ? (
+            <div className="text-center py-6 bg-slate-700/20 rounded-xl border border-dashed border-slate-600">
+              <User className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+              <p className="text-sm text-slate-400">Nenhuma pessoa adicionada</p>
+              <p className="text-xs text-slate-500">Clique em "Adicionar Pessoa" para incluir</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {pessoas.map((pessoa, index) => (
+                <div 
+                  key={pessoa.id} 
+                  className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-xs text-slate-500 bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded flex items-center gap-1">
+                      <User className="w-3 h-3" />
+                      Pessoa #{index + 1}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removerPessoa(pessoa.id)}
+                      className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <Input
+                      label="Nome"
+                      value={pessoa.nome}
+                      onChange={(e) => atualizarPessoa(pessoa.id, 'nome', e.target.value)}
+                      placeholder="Ex: João Silva"
+                      icon={User}
+                    />
+                    <Input
+                      label="Cargo"
+                      value={pessoa.cargo}
+                      onChange={(e) => atualizarPessoa(pessoa.id, 'cargo', e.target.value)}
+                      placeholder="Ex: Analista"
+                      icon={Briefcase}
+                    />
+                    <Input
+                      label="Valor/Hora (R$)"
+                      type="number"
+                      value={pessoa.valorHora || ''}
+                      onChange={(e) => atualizarPessoa(pessoa.id, 'valorHora', parseFloat(e.target.value) || 0)}
+                      placeholder="Ex: 50"
+                      icon={DollarSign}
+                    />
+                    <Input
+                      label="Tempo por Execução (min)"
+                      type="number"
+                      value={pessoa.tempoExecucao || ''}
+                      onChange={(e) => atualizarPessoa(pessoa.id, 'tempoExecucao', parseFloat(e.target.value) || 0)}
+                      placeholder="Ex: 30"
+                      icon={Clock}
+                    />
+                  </div>
+
+                  {/* Frequência da Pessoa */}
+                  <div className="mt-3 pt-3 border-t border-slate-600/50">
+                    <label className="block text-xs text-slate-400 mb-2">Frequência de execução desta etapa</label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <Input
+                        label="Quantidade"
+                        type="number"
+                        min="1"
+                        value={pessoa.frequencia?.quantidade || 1}
+                        onChange={(e) => atualizarFrequenciaPessoa(pessoa.id, 'quantidade', parseInt(e.target.value) || 1)}
+                      />
+                      <Select
+                        label="Período"
+                        value={pessoa.frequencia?.periodo || 'mes'}
+                        onChange={(e) => atualizarFrequenciaPessoa(pessoa.id, 'periodo', e.target.value)}
+                        options={PERIODOS_FREQUENCIA.map(p => ({ value: p.valor, label: p.label }))}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Custo estimado da pessoa */}
+                  <div className="mt-3 pt-3 border-t border-slate-600/50 flex justify-between items-center">
+                    <span className="text-xs text-slate-400">Custo mensal estimado:</span>
+                    <span className="text-sm font-semibold text-orange-400">
+                      R$ {calcularCustoMensalPessoa(pessoa).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Resumo Total */}
+          {pessoas.length > 0 && (
+            <div className="bg-purple-500/10 rounded-xl p-4 border border-purple-500/30">
+              <h4 className="text-sm font-medium text-purple-300 mb-2 flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Resumo de Pessoas com IA
+              </h4>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-slate-400">Total de Pessoas</p>
+                  <p className="text-lg font-bold text-white">{pessoas.length}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Custo Mensal Total</p>
+                  <p className="text-lg font-bold text-orange-400">
+                    R$ {calcularTotalMensal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Custo Anual Total</p>
+                  <p className="text-lg font-bold text-red-400">
+                    R$ {(calcularTotalMensal() * 12).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
 
 // Componente para gerenciar custos adicionais
 const CustosAdicionais = ({ custos = [], onChange }) => {
@@ -590,11 +796,33 @@ export const IndicadorForm = ({ projetoId, indicadorId, onClose }) => {
               </div>
             </div>
 
+            {/* Campos específicos do tipo de indicador */}
             <CamposComIA
               tipo={formData.tipoIndicador}
               dados={formData.comIA}
               onChange={(comIA) => setFormData({ ...formData, comIA })}
             />
+
+            {/* Separador */}
+            <div className="border-t border-slate-700 pt-6">
+              {/* Pessoas atuando com IA */}
+              <PessoasComIA
+                pessoas={formData.comIA.pessoasComIA || []}
+                onChange={(pessoasComIA) => setFormData({
+                  ...formData,
+                  comIA: { ...formData.comIA, pessoasComIA }
+                })}
+                habilitado={formData.comIA.temPessoasComIA || false}
+                onToggle={() => setFormData({
+                  ...formData,
+                  comIA: { 
+                    ...formData.comIA, 
+                    temPessoasComIA: !formData.comIA.temPessoasComIA,
+                    pessoasComIA: !formData.comIA.temPessoasComIA ? formData.comIA.pessoasComIA || [] : []
+                  }
+                })}
+              />
+            </div>
           </CardContent>
         </Card>
       </TabPanel>

@@ -215,6 +215,17 @@ const calcularCustosAdicionais = (custosAdicionais = []) => {
   return { custosUnicos, custosMensais };
 };
 
+// Calcular custo mensal das pessoas com IA
+const calcularCustoPessoasComIA = (pessoasComIA = []) => {
+  return pessoasComIA.reduce((acc, pessoa) => {
+    const tempoHoras = (pessoa.tempoExecucao || 0) / 60;
+    const valorHora = pessoa.valorHora || 0;
+    const periodo = PERIODOS_FREQUENCIA.find(p => p.valor === pessoa.frequencia?.periodo);
+    const frequenciaMensal = (pessoa.frequencia?.quantidade || 1) * (periodo?.multiplicador || 1);
+    return acc + (tempoHoras * valorHora * frequenciaMensal);
+  }, 0);
+};
+
 // Calcular ROI do indicador
 export const calcularROIIndicador = (indicador) => {
   const baseline = indicador.baseline || {};
@@ -232,9 +243,14 @@ export const calcularROIIndicador = (indicador) => {
   // Custos adicionais
   const { custosUnicos, custosMensais } = calcularCustosAdicionais(comIA.custosAdicionais);
   
+  // Custo das pessoas com IA
+  const custoMensalPessoasComIA = comIA.temPessoasComIA 
+    ? calcularCustoPessoasComIA(comIA.pessoasComIA) 
+    : 0;
+  
   // Totais
   const custoImplementacao = custoImplementacaoBase + custosUnicos;
-  const custoMensalTotal = custoMensalFerramentas + custoMensalManutencao + custosMensais;
+  const custoMensalTotal = custoMensalFerramentas + custoMensalManutencao + custosMensais + custoMensalPessoasComIA;
   const custoAnualRecorrente = custoMensalTotal * 12;
   
   // Economia
@@ -269,6 +285,11 @@ export const calcularROIIndicador = (indicador) => {
       unicos: custosUnicos,
       mensais: custosMensais,
       itens: comIA.custosAdicionais || []
+    },
+    pessoasComIA: {
+      quantidade: comIA.pessoasComIA?.length || 0,
+      custoMensal: custoMensalPessoasComIA,
+      pessoas: comIA.pessoasComIA || []
     },
     roiPercentual: Math.round(roiPercentual * 100) / 100,
     paybackMeses: Math.round(paybackMeses * 10) / 10
