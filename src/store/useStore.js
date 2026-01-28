@@ -60,6 +60,18 @@ export const PERIODOS_FREQUENCIA = [
   { valor: 'ano', label: 'Por ano', multiplicador: 1/12 }
 ];
 
+export const CATEGORIAS_CUSTO = [
+  { valor: 'implementacao', label: 'Implementação' },
+  { valor: 'licenca', label: 'Licenças de Software' },
+  { valor: 'api', label: 'APIs e Tokens' },
+  { valor: 'infraestrutura', label: 'Infraestrutura' },
+  { valor: 'treinamento', label: 'Treinamento' },
+  { valor: 'consultoria', label: 'Consultoria' },
+  { valor: 'manutencao', label: 'Manutenção' },
+  { valor: 'suporte', label: 'Suporte' },
+  { valor: 'outros', label: 'Outros' }
+];
+
 // Função para gerar ID único
 const gerarId = () => Math.random().toString(36).substr(2, 9);
 
@@ -187,6 +199,22 @@ const calcularValorPorTipo = (indicador) => {
   }
 };
 
+// Calcular custos adicionais
+const calcularCustosAdicionais = (custosAdicionais = []) => {
+  const custosUnicos = custosAdicionais
+    .filter(c => c.tipo === 'unico')
+    .reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0);
+  
+  const custosMensais = custosAdicionais
+    .filter(c => c.tipo === 'recorrente')
+    .reduce((acc, c) => {
+      const valor = parseFloat(c.valor) || 0;
+      return acc + (c.periodo === 'ano' ? valor / 12 : valor);
+    }, 0);
+  
+  return { custosUnicos, custosMensais };
+};
+
 // Calcular ROI do indicador
 export const calcularROIIndicador = (indicador) => {
   const baseline = indicador.baseline || {};
@@ -196,11 +224,17 @@ export const calcularROIIndicador = (indicador) => {
   // Valor específico do tipo
   const valorPorTipo = calcularValorPorTipo(indicador);
   
-  // Custos
-  const custoImplementacao = comIA.custoImplementacao || 0;
+  // Custos principais
+  const custoImplementacaoBase = comIA.custoImplementacao || 0;
   const custoMensalFerramentas = comIA.custoMensalFerramentas || 0;
   const custoMensalManutencao = comIA.custoMensalManutencao || 0;
-  const custoMensalTotal = custoMensalFerramentas + custoMensalManutencao;
+  
+  // Custos adicionais
+  const { custosUnicos, custosMensais } = calcularCustosAdicionais(comIA.custosAdicionais);
+  
+  // Totais
+  const custoImplementacao = custoImplementacaoBase + custosUnicos;
+  const custoMensalTotal = custoMensalFerramentas + custoMensalManutencao + custosMensais;
   const custoAnualRecorrente = custoMensalTotal * 12;
   
   // Economia
@@ -231,6 +265,11 @@ export const calcularROIIndicador = (indicador) => {
     custoMensalTotal,
     custoAnualRecorrente,
     investimentoTotal,
+    custosAdicionais: {
+      unicos: custosUnicos,
+      mensais: custosMensais,
+      itens: comIA.custosAdicionais || []
+    },
     roiPercentual: Math.round(roiPercentual * 100) / 100,
     paybackMeses: Math.round(paybackMeses * 10) / 10
   };

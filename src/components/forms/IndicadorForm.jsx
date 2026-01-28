@@ -1,13 +1,158 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Info, Clock, Brain, TrendingUp, Percent, Shield, Target, Zap, Smile,
-  DollarSign, Calculator, ArrowLeft, ArrowRight, Save, Plus
+  DollarSign, Calculator, ArrowLeft, ArrowRight, Save, Plus, Trash2, Tag
 } from 'lucide-react';
 import { Card, CardContent, Button, Input, Select, Textarea, Tabs, TabPanel } from '../ui';
-import useStore, { TIPOS_INDICADOR, PERIODOS_FREQUENCIA } from '../../store/useStore';
+import useStore, { TIPOS_INDICADOR, PERIODOS_FREQUENCIA, CATEGORIAS_CUSTO } from '../../store/useStore';
 import { toast } from '../ui/Toast';
 
 const icones = { Clock, Brain, TrendingUp, Percent, Shield, Target, Zap, Smile };
+
+// Componente para gerenciar custos adicionais
+const CustosAdicionais = ({ custos = [], onChange }) => {
+  const adicionarCusto = () => {
+    const novoCusto = {
+      id: Date.now(),
+      nome: '',
+      valor: 0,
+      tipo: 'unico', // 'unico' ou 'recorrente'
+      periodo: 'mes', // 'mes' ou 'ano'
+      categoria: 'implementacao'
+    };
+    onChange([...custos, novoCusto]);
+  };
+
+  const atualizarCusto = (id, campo, valor) => {
+    onChange(custos.map(c => c.id === id ? { ...c, [campo]: valor } : c));
+  };
+
+  const removerCusto = (id) => {
+    onChange(custos.filter(c => c.id !== id));
+  };
+
+  const calcularTotalUnico = () => {
+    return custos
+      .filter(c => c.tipo === 'unico')
+      .reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0);
+  };
+
+  const calcularTotalMensal = () => {
+    return custos
+      .filter(c => c.tipo === 'recorrente')
+      .reduce((acc, c) => {
+        const valor = parseFloat(c.valor) || 0;
+        return acc + (c.periodo === 'ano' ? valor / 12 : valor);
+      }, 0);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-slate-300">Custos Adicionais</h3>
+        <Button variant="outline" size="sm" onClick={adicionarCusto} icon={Plus}>
+          Adicionar Custo
+        </Button>
+      </div>
+
+      {custos.length === 0 ? (
+        <div className="text-center py-6 bg-slate-700/20 rounded-xl border border-dashed border-slate-600">
+          <DollarSign className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+          <p className="text-sm text-slate-400">Nenhum custo adicional</p>
+          <p className="text-xs text-slate-500">Clique em "Adicionar Custo" para incluir</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {custos.map((custo, index) => (
+            <div 
+              key={custo.id} 
+              className="bg-slate-700/30 rounded-xl p-4 border border-slate-600/50"
+            >
+              <div className="flex items-start justify-between mb-3">
+                <span className="text-xs text-slate-500 bg-slate-600/50 px-2 py-0.5 rounded">
+                  Custo #{index + 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removerCusto(custo.id)}
+                  className="p-1 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Input
+                  label="Nome do Custo"
+                  value={custo.nome}
+                  onChange={(e) => atualizarCusto(custo.id, 'nome', e.target.value)}
+                  placeholder="Ex: Licença OpenAI"
+                />
+                <Input
+                  label="Valor (R$)"
+                  type="number"
+                  value={custo.valor || ''}
+                  onChange={(e) => atualizarCusto(custo.id, 'valor', parseFloat(e.target.value) || 0)}
+                  placeholder="0,00"
+                />
+                <Select
+                  label="Tipo de Custo"
+                  value={custo.tipo}
+                  onChange={(e) => atualizarCusto(custo.id, 'tipo', e.target.value)}
+                  options={[
+                    { value: 'unico', label: 'Custo Único (Implementação)' },
+                    { value: 'recorrente', label: 'Custo Recorrente' }
+                  ]}
+                />
+                {custo.tipo === 'recorrente' && (
+                  <Select
+                    label="Período"
+                    value={custo.periodo}
+                    onChange={(e) => atualizarCusto(custo.id, 'periodo', e.target.value)}
+                    options={[
+                      { value: 'mes', label: 'Por Mês' },
+                      { value: 'ano', label: 'Por Ano' }
+                    ]}
+                  />
+                )}
+                <Select
+                  label="Categoria"
+                  value={custo.categoria}
+                  onChange={(e) => atualizarCusto(custo.id, 'categoria', e.target.value)}
+                  options={CATEGORIAS_CUSTO.map(c => ({ value: c.valor, label: c.label }))}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Resumo dos Custos */}
+      {custos.length > 0 && (
+        <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-600">
+          <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
+            <Calculator className="w-4 h-4 text-cyan-400" />
+            Resumo dos Custos Adicionais
+          </h4>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-400">Custos Únicos:</span>
+              <span className="text-sm font-semibold text-yellow-400">
+                R$ {calcularTotalUnico().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-slate-400">Custos Mensais:</span>
+              <span className="text-sm font-semibold text-orange-400">
+                R$ {calcularTotalMensal().toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Campos dinâmicos por tipo de indicador
 const CamposBaseline = ({ tipo, dados, onChange }) => {
@@ -468,40 +613,113 @@ export const IndicadorForm = ({ projetoId, indicadorId, onClose }) => {
               </div>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Input
-                label="Custo de Implementação (R$)"
-                type="number"
-                value={formData.comIA.custoImplementacao || ''}
-                onChange={(e) => setFormData({
+            {/* Custos Fixos Principais */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+                <Tag className="w-4 h-4 text-blue-400" />
+                Custos Principais
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Input
+                  label="Implementação (R$)"
+                  type="number"
+                  value={formData.comIA.custoImplementacao || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    comIA: { ...formData.comIA, custoImplementacao: parseFloat(e.target.value) || 0 }
+                  })}
+                  placeholder="Ex: 15000"
+                  hint="Desenvolvimento, consultoria"
+                />
+                <Input
+                  label="Ferramentas/mês (R$)"
+                  type="number"
+                  value={formData.comIA.custoMensalFerramentas || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    comIA: { ...formData.comIA, custoMensalFerramentas: parseFloat(e.target.value) || 0 }
+                  })}
+                  placeholder="Ex: 500"
+                  hint="APIs, licenças, tokens"
+                />
+                <Input
+                  label="Manutenção/mês (R$)"
+                  type="number"
+                  value={formData.comIA.custoMensalManutencao || ''}
+                  onChange={(e) => setFormData({
+                    ...formData,
+                    comIA: { ...formData.comIA, custoMensalManutencao: parseFloat(e.target.value) || 0 }
+                  })}
+                  placeholder="Ex: 300"
+                  hint="Infraestrutura, suporte"
+                />
+              </div>
+            </div>
+
+            {/* Separador */}
+            <div className="border-t border-slate-700 pt-6">
+              <CustosAdicionais
+                custos={formData.comIA.custosAdicionais || []}
+                onChange={(custosAdicionais) => setFormData({
                   ...formData,
-                  comIA: { ...formData.comIA, custoImplementacao: parseFloat(e.target.value) || 0 }
+                  comIA: { ...formData.comIA, custosAdicionais }
                 })}
-                placeholder="Ex: 15000"
-                hint="Desenvolvimento, consultoria, treinamento"
               />
-              <Input
-                label="Custo Mensal Ferramentas (R$)"
-                type="number"
-                value={formData.comIA.custoMensalFerramentas || ''}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  comIA: { ...formData.comIA, custoMensalFerramentas: parseFloat(e.target.value) || 0 }
-                })}
-                placeholder="Ex: 500"
-                hint="APIs, licenças, tokens"
-              />
-              <Input
-                label="Custo Mensal Manutenção (R$)"
-                type="number"
-                value={formData.comIA.custoMensalManutencao || ''}
-                onChange={(e) => setFormData({
-                  ...formData,
-                  comIA: { ...formData.comIA, custoMensalManutencao: parseFloat(e.target.value) || 0 }
-                })}
-                placeholder="Ex: 300"
-                hint="Infraestrutura, suporte"
-              />
+            </div>
+
+            {/* Total Geral */}
+            <div className="bg-gradient-to-r from-blue-500/10 to-cyan-500/10 rounded-xl p-4 border border-blue-500/30">
+              <h4 className="text-sm font-medium text-blue-300 mb-3 flex items-center gap-2">
+                <Calculator className="w-4 h-4" />
+                Total de Custos do Indicador
+              </h4>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div>
+                  <p className="text-xs text-slate-400">Investimento Inicial</p>
+                  <p className="text-lg font-bold text-yellow-400">
+                    R$ {(
+                      (formData.comIA.custoImplementacao || 0) +
+                      (formData.comIA.custosAdicionais || [])
+                        .filter(c => c.tipo === 'unico')
+                        .reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0)
+                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Custo Mensal</p>
+                  <p className="text-lg font-bold text-orange-400">
+                    R$ {(
+                      (formData.comIA.custoMensalFerramentas || 0) +
+                      (formData.comIA.custoMensalManutencao || 0) +
+                      (formData.comIA.custosAdicionais || [])
+                        .filter(c => c.tipo === 'recorrente')
+                        .reduce((acc, c) => {
+                          const valor = parseFloat(c.valor) || 0;
+                          return acc + (c.periodo === 'ano' ? valor / 12 : valor);
+                        }, 0)
+                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}/mês
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-400">Custo Anual Total</p>
+                  <p className="text-lg font-bold text-red-400">
+                    R$ {(
+                      (formData.comIA.custoImplementacao || 0) +
+                      (formData.comIA.custosAdicionais || [])
+                        .filter(c => c.tipo === 'unico')
+                        .reduce((acc, c) => acc + (parseFloat(c.valor) || 0), 0) +
+                      ((formData.comIA.custoMensalFerramentas || 0) +
+                       (formData.comIA.custoMensalManutencao || 0) +
+                       (formData.comIA.custosAdicionais || [])
+                        .filter(c => c.tipo === 'recorrente')
+                        .reduce((acc, c) => {
+                          const valor = parseFloat(c.valor) || 0;
+                          return acc + (c.periodo === 'ano' ? valor / 12 : valor);
+                        }, 0)) * 12
+                    ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </p>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
